@@ -77,6 +77,6 @@ typedef struct
                         value between 0 to 0xFF */
 } CanRxMsg;
 
-void CAN_SetTxMsg(CanTxMsg*, uint16_t, uint32_t, uint8_t, uint8_t*);
-
+void CAN_SetTxMsg(uint16_t, uint32_t, uint8_t, uint8_t*);
+void CAN_GetRxMsg(uint32_t*, uint32_t*, uint8_t*, uint8_t*);
 #endif  /* D_CANTest_H */

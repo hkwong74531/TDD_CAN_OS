@@ -22,6 +22,12 @@
 #define CAN_LAST_PACKET              2
 #define CAN_ACK_PACKET               3
 
+#define CAN_RCV_ERROR_PACKET         0
+#define CAN_RCV_SINGLE_PACKET        1
+#define CAN_RCV_FIRST_PACKET         2
+#define CAN_RCV_GENERAL_PACKET       3
+#define CAN_RCV_LAST_PACKET          4
+
 #define MESSAGE_TYPE_RANGE  15
 
 typedef struct
@@ -73,5 +79,6 @@ typedef struct
 }canMessage_t;
 
 uint8_t can_message_construct(canMessage_t*, uint8_t, uint16_t, uint8_t, uint8_t*);
-
+uint8_t can_message_transmit(canMessage_t*, uint8_t);
+uint8_t can_message_receive(canMessage_t*);
 #endif
