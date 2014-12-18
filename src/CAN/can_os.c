@@ -138,7 +138,7 @@ uint8_t can_message_receive(canMessage_t* message)
 				
 				return CAN_RCV_FIRST_PACKET;
 			}
-			else if((data[1] & 0xC0) == 0x40)	// general packet
+			else if((data[1] & 0xC0) == 0x40 && dlc == CAN_PACKET_SIZE + 2)	// general packet
 			{
 				if(id == (*message).identifier.bitField)	// should be same data set_new_handler
 				{
