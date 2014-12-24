@@ -58,10 +58,10 @@ TEST(CANProtocolLayer, testReceiver0)
 	rxMsg.DLC = 7;
 	rxMsg.Data[0] = 0x08;
 	/* data as below */
-	rxMsg.Data[1] = 0;
-	rxMsg.Data[2] = 1;	
+	rxMsg.Data[1] = 0;	// command
+	rxMsg.Data[2] = 1;	// command_type
 	rxMsg.Data[3] = 0;	
-	rxMsg.Data[4] = 4;	
+	rxMsg.Data[4] = 4;	// data_length
 	rxMsg.Data[5] = 0;	
 	rxMsg.Data[6] = 0;	// message_id
 	can_command_setEvent(CAN_COMMAND_PACKET_RECEIVED_EVENT);
@@ -70,7 +70,32 @@ TEST(CANProtocolLayer, testReceiver0)
 	BYTES_EQUAL(CAN_PROTOCOL_RCV_COMMAND_STATE, state);	
 	
 	can_protocol_getReceived(&commandIn);
-	BYTES_EQUAL(4, commandIn.data_length);
+	
+	can_protocol_setReply(0x03, 4, NULL);
+	event = CAN_PROTOCOL_REPLY_EVENT;
+	state = can_protocol_state_process(event);
+	
+	BYTES_EQUAL(CAN_PROTOCOL_IDLE_STATE, state);	
+
+	rxMsg.StdId = 0x0508;
+	rxMsg.IDE = CAN_ID_STD;
+	rxMsg.DLC = 7;
+	rxMsg.Data[0] = 0x08;
+	/* data as below */
+	rxMsg.Data[1] = 0;	// command
+	rxMsg.Data[2] = 1;	// command_type
+	rxMsg.Data[3] = 0;	
+	rxMsg.Data[4] = 4;	// data_length
+	rxMsg.Data[5] = 0;	
+	rxMsg.Data[6] = 0;	// message_id	
+	can_command_setEvent(CAN_COMMAND_PACKET_RECEIVED_EVENT);	
+	state = can_protocol_state_process(event);	
+	BYTES_EQUAL(CAN_PROTOCOL_REPLY_LOST_STATE, state);	
+
+	event = CAN_PROTOCOL_REPLY_EVENT;
+	state = can_protocol_state_process(event);
+	BYTES_EQUAL(CAN_PROTOCOL_IDLE_STATE, state);	
+	
 }
 
 TEST(CANProtocolLayer, testReceiver1)

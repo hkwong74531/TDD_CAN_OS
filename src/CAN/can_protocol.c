@@ -108,14 +108,25 @@ canProtocolState_t can_protocol_state_process(canProtocolEvent_t event)
 	case CAN_PROTOCOL_IDLE_STATE:
 		if(can_command_isAllReceived())
 		{
+			canCommand_t canProtocolBuffer;
+			
+			memcpy(&canProtocolBuffer, &canProtocolReceived, sizeof(canCommand_t));
 			ret = can_command_acquired(&canProtocolReceived);
 			if(canProtocolReceived.message_id == canProtocol_ctrlID)
 			{
 				canProtocolState = CAN_PROTOCOL_RCV_COMMAND_STATE;
 			}
+			else if(canProtocolReceived.message_id == canProtocol_ctrlID - 1)
+			{
+				if(!memcmp(&canProtocolBuffer, &canProtocolReceived, sizeof(canCommand_t)))
+				{
+					canProtocolState = CAN_PROTOCOL_REPLY_LOST_STATE;
+				}
+			}
 		}
 		break;
 	case CAN_PROTOCOL_RCV_COMMAND_STATE:
+	case CAN_PROTOCOL_REPLY_LOST_STATE:
 		if(event == CAN_PROTOCOL_REPLY_EVENT)
 		{
 			ret = can_command_transmit(canProtocolSend);

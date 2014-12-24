@@ -17,6 +17,7 @@ typedef enum
 {
 	CAN_PROTOCOL_IDLE_STATE,
 	CAN_PROTOCOL_RCV_COMMAND_STATE,
+	CAN_PROTOCOL_REPLY_LOST_STATE,
 } canProtocolState_t;
 
 typedef enum
