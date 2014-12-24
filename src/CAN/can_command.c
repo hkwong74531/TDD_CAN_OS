@@ -211,25 +211,6 @@ uint8_t can_command_to_message(canCommand_t command, canMessage_t* message)
 	return 1;
 }
 
-void can_command_construct(
-	canCommand_t* canCommand, 
-	uint8_t  identifier,
-	uint8_t  message_type,
-	uint8_t  command,
-	uint8_t  command_type,
-	uint16_t data_length,
-	uint16_t message_id,
-	uint8_t* data)
-{
-	canCommand->identifier = identifier;
-	canCommand->message_type = message_type;
-	canCommand->command = command;
-	canCommand->command_type = command_type;
-	canCommand->data_length = data_length;
-	canCommand->message_id = message_id;
-	canCommand->data = data;
-}
-
 uint8_t can_command_transmit(canCommand_t command)
 {
 	uint8_t ret;
