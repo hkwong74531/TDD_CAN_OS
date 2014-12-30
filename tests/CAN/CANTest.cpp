@@ -170,6 +170,7 @@ TEST(CANCommandState, testReceiver1)
 	rxMsg.Data[6] = 10;	
 	rxMsg.Data[7] = 11;	
 	
+	can_command_setEvent(CAN_COMMAND_PACKET_RECEIVED_EVENT);	
 	can_command_state_process();
 	
 	BYTES_EQUAL(0, can_command_isAllReceived());
@@ -188,6 +189,7 @@ TEST(CANCommandState, testReceiver1)
 	rxMsg.Data[6] = 0;	
 	rxMsg.Data[7] = 0;	
 
+	can_command_setEvent(CAN_COMMAND_PACKET_RECEIVED_EVENT);		
 	can_command_state_process();
 	
 	BYTES_EQUAL(1, can_command_isAllReceived());

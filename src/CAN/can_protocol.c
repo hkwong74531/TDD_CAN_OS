@@ -40,6 +40,16 @@ static uint8_t can_protocol_reply(
 	return ret;
 }
 #endif
+uint16_t can_protocol_getCtrlID(void)
+{
+	return canProtocol_ctrlID;
+}
+
+uint16_t can_protocol_getRdrID(void)
+{
+	return canProtocol_rdrID;
+}
+
 void can_protocol_init(void)
 {
 	canProtocolState = CAN_PROTOCOL_IDLE_STATE;
@@ -57,6 +67,8 @@ void can_protocol_deinit(void)
 
 void can_protocol_setSend(canCommand_t* send)
 {
+	free(canProtocolSend.data);
+
 	memcpy(&canProtocolSend, send, sizeof(canCommand_t));
 }
 
@@ -64,11 +76,8 @@ uint8_t can_protocol_setReply(uint8_t command_type, uint16_t data_length, uint8_
 {
 	uint8_t ret = 0;
 
-	if(canProtocolSend.data != NULL)
-	{
-		free(canProtocolSend.data);
-	}
-
+//	free(canProtocolSend.data);
+	
 	canProtocolSend.identifier = canProtocolReceived.identifier;
 	canProtocolSend.message_type = canProtocolReceived.message_type;
 	canProtocolSend.command = canProtocolReceived.command;
@@ -79,7 +88,7 @@ uint8_t can_protocol_setReply(uint8_t command_type, uint16_t data_length, uint8_
 
 	if(data_length > 4)
 	{
-		canProtocolSend.data = malloc(data_length - 4);
+		canProtocolSend.data = realloc(canProtocolSend.data, data_length - 4);
 		if(canProtocolSend.data != NULL)
 		{
 			ret = 1;
@@ -120,8 +129,22 @@ canProtocolState_t can_protocol_state_process(canProtocolEvent_t event)
 			{
 				if(!memcmp(&canProtocolBuffer, &canProtocolReceived, sizeof(canCommand_t)))
 				{
+					canProtocol_ctrlID--;
 					canProtocolState = CAN_PROTOCOL_REPLY_LOST_STATE;
 				}
+			}
+		}
+		else if(event == CAN_PROTOCOL_SEND_EVENT)
+		{
+			ret = can_command_transmit(canProtocolSend);
+			if(can_command_isAllSent())
+			{
+				canProtocolState = CAN_PROTOCOL_SENT_COMMAND_STATE;
+				can_command_clearAllSent();
+			}
+			else
+			{
+				canProtocolState = CAN_PROTOCOL_SENDING_COMMAND_STATE;
 			}
 		}
 		break;
@@ -130,12 +153,58 @@ canProtocolState_t can_protocol_state_process(canProtocolEvent_t event)
 		if(event == CAN_PROTOCOL_REPLY_EVENT)
 		{
 			ret = can_command_transmit(canProtocolSend);
-			if(ret == 1)
+			if(can_command_isAllSent())
 			{
 				canProtocolState = CAN_PROTOCOL_IDLE_STATE;
+				can_command_clearAllSent();
+				can_command_clearAllReceived();
 				canProtocol_ctrlID++;
 			}
+			else
+			{
+				canProtocolState = CAN_PROTOCOL_REPLYING_COMMAND_STATE;
+			}
 		}
+		break;
+	case CAN_PROTOCOL_SENDING_COMMAND_STATE:
+		if(can_command_isAllSent())
+		{
+			canProtocolState = CAN_PROTOCOL_SENT_COMMAND_STATE;
+			can_command_clearAllSent();			
+		}		
+		break;
+	case CAN_PROTOCOL_SENT_COMMAND_STATE:
+		if(can_command_isAllReceived())
+		{
+			ret = can_command_acquired(&canProtocolReceived);
+			if(canProtocolReceived.message_id == canProtocol_rdrID)
+			{
+				if(canProtocolReceived.message_type == canProtocolSend.message_type &&
+				   canProtocolReceived.command == canProtocolSend.command)
+				{
+					canProtocolState = CAN_PROTOCOL_IDLE_STATE;
+					canProtocol_rdrID++;
+				}
+			}
+			can_command_clearAllReceived();
+		}
+		else if(event == CAN_PROTOCOL_TIMEOUT_EVENT)
+		{
+			ret = can_command_transmit(canProtocolSend);
+			if(ret == 1)
+			{
+				canProtocolState = CAN_PROTOCOL_SENDING_COMMAND_STATE;
+			}
+		}
+		break;
+	case CAN_PROTOCOL_REPLYING_COMMAND_STATE:
+		if(can_command_isAllSent())
+		{
+			canProtocolState = CAN_PROTOCOL_IDLE_STATE;
+			can_command_clearAllSent();	
+			can_command_clearAllReceived();	
+			canProtocol_ctrlID++;			
+		}		
 		break;
 	default:
 		break;

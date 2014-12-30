@@ -7,15 +7,15 @@ static uint8_t can_command_allSent = 0;
 static uint8_t can_command_allReceived = 0;
 static uint16_t can_command_packetCnt = 0;
 
-static void can_command_idle_state(canCommandEvent_t canCommandEvent);
-static void can_command_sending_state(canCommandEvent_t canCommandEvent);
-static void can_command_receiving_state(canCommandEvent_t canCommandEvent);
+static void can_command_idle_state(canCommandEvent_t* canCommandEvent);
+static void can_command_sending_state(canCommandEvent_t* canCommandEvent);
+static void can_command_receiving_state(canCommandEvent_t* canCommandEvent);
 
 static void can_command_idle_enter(void);
 static void can_command_sending_enter(void);
 static void can_command_receiving_enter(void);
 
-void (*can_command_state_function[CAN_COMMAND_DUMMY_STATE])(canCommandEvent_t event) =
+void (*can_command_state_function[CAN_COMMAND_DUMMY_STATE])(canCommandEvent_t* event) =
 {
 	NULL,
 	can_command_idle_state,
@@ -29,13 +29,14 @@ static void can_command_idle_enter(void)
 	can_command_packetCnt = 0;
 }
 
-static void can_command_idle_state(canCommandEvent_t canCommandEvent)
+static void can_command_idle_state(canCommandEvent_t* canCommandEvent)
 {
 	uint8_t ret;
 
-	switch(canCommandEvent)
+	switch(*canCommandEvent)
 	{
 	case CAN_COMMAND_SEND_EVENT:
+		can_command_allSent = 0;
 		ret = can_message_transmit(&can_command_message, 0);
 		if(ret == 1)
 		{
@@ -68,7 +69,7 @@ static void can_command_idle_state(canCommandEvent_t canCommandEvent)
 	default:
 		break;
 	}
-	canCommandEvent = CAN_COMMAND_DUMMY_EVENT;
+	*canCommandEvent = CAN_COMMAND_DUMMY_EVENT;
 }
 
 static void can_command_sending_enter(void)
@@ -77,11 +78,11 @@ static void can_command_sending_enter(void)
 	can_command_allSent = 0;
 }
 
-static void can_command_sending_state(canCommandEvent_t canCommandEvent)
+static void can_command_sending_state(canCommandEvent_t* canCommandEvent)
 {
 	uint8_t ret;
 
-	switch(canCommandEvent)
+	switch(*canCommandEvent)
 	{
 	case CAN_COMMAND_INIT_EVENT:
 		can_command_idle_enter();
@@ -98,12 +99,26 @@ static void can_command_sending_state(canCommandEvent_t canCommandEvent)
 			}
 		}
 		break;
-	case CAN_COMMAND_PACKET_RECEIVED_EVENT:
 	case CAN_COMMAND_DUMMY_EVENT:
+		if(can_command_packetCnt < can_command_message.total_packet)
+		{
+			ret = can_message_transmit(&can_command_message, can_command_packetCnt);
+			if(ret == 1)
+			{
+				can_command_packetCnt++;
+				if(can_command_packetCnt == can_command_message.total_packet)
+				{
+					can_command_allSent = 1;
+					can_command_idle_enter();
+				}
+			}
+		}
+		break;
+	case CAN_COMMAND_PACKET_RECEIVED_EVENT:		
 	default:
 		break;
 	}
-	canCommandEvent = CAN_COMMAND_DUMMY_EVENT;
+	*canCommandEvent = CAN_COMMAND_DUMMY_EVENT;
 }
 
 static void can_command_receiving_enter(void)
@@ -112,11 +127,11 @@ static void can_command_receiving_enter(void)
 	can_command_allReceived = 0;
 }
 
-static void can_command_receiving_state(canCommandEvent_t canCommandEvent)
+static void can_command_receiving_state(canCommandEvent_t* canCommandEvent)
 {
 	uint8_t ret;
 
-	switch(canCommandEvent)
+	switch(*canCommandEvent)
 	{
 	case CAN_COMMAND_INIT_EVENT:
 		can_command_idle_enter();
@@ -130,11 +145,11 @@ static void can_command_receiving_state(canCommandEvent_t canCommandEvent)
 		}
 		break;
 	case CAN_COMMAND_SEND_EVENT:
-	case CAN_COMMAND_DUMMY_EVENT:
+	case CAN_COMMAND_DUMMY_EVENT:	
 	default:
 		break;
 	}
-	canCommandEvent = CAN_COMMAND_DUMMY_EVENT;
+	*canCommandEvent = CAN_COMMAND_DUMMY_EVENT;
 }
 
 void can_command_init(void)
@@ -149,8 +164,6 @@ void can_command_init(void)
 
 uint8_t can_message_to_command(canMessage_t message, canCommand_t* command)
 {
-	free(command->data);
-	
 	command->identifier = message.identifier.bit.nodeID;
 	command->message_type = message.identifier.bit.messageType;
 	command->command = message.data[0];
@@ -167,7 +180,7 @@ uint8_t can_message_to_command(canMessage_t message, canCommand_t* command)
 	}
 	else
 	{
-		command->data = malloc(command->data_length - 4);
+		command->data = realloc(command->data, command->data_length - 4);
 	}
 	memcpy(command->data, &(message.data[6]), command->data_length - 4);
 	return 1;
@@ -243,6 +256,16 @@ uint8_t can_command_isAllReceived(void)
 	return can_command_allReceived;
 }
 
+void can_command_clearAllSent(void)
+{
+	can_command_allSent = 0;
+}
+
+void can_command_clearAllReceived(void)
+{
+	can_command_allReceived = 0;
+}
+
 uint16_t can_command_getPacketCnt(void)
 {
 	return can_command_packetCnt;
@@ -260,5 +283,5 @@ void can_command_setEvent(canCommandEvent_t event)
 
 void can_command_state_process(void)
 {
-	(*can_command_state_function[canCommandState])(canCommandEvent);
+	(*can_command_state_function[canCommandState])(&canCommandEvent);
 }

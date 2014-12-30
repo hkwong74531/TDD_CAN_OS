@@ -47,6 +47,8 @@ uint8_t can_command_transmit(canCommand_t);
 uint8_t can_command_acquired(canCommand_t*);
 uint8_t can_command_isAllSent(void);
 uint8_t can_command_isAllReceived(void);
+void can_command_clearAllSent(void);
+void can_command_clearAllReceived(void);
 uint16_t can_command_getPacketCnt(void);
 canCommandState_t can_command_getState(void);
 void can_command_setEvent(canCommandEvent_t);
