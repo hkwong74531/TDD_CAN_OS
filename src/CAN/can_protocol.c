@@ -2,44 +2,8 @@
 
 static canProtocolState_t canProtocolState;
 static canCommand_t canProtocolReceived, canProtocolSend;
-static uint16_t canProtocol_ctrlID, canProtocol_rdrID;//, canProtocol_commandType, canProtocol_dataLength;
-//static uint8_t canProtocolData[160];
-#if 0
-static uint8_t can_protocol_reply(
-	canCommand_t* canCommandOut, 
-	canCommand_t canCommandIn,
-	uint8_t command_type,
-	uint16_t data_length,
-	uint8_t* data)
-{
-	uint8_t ret = 0;
+static uint16_t canProtocol_ctrlID, canProtocol_rdrID;
 
-	free(canCommandOut->data);
-
-	canCommandOut->identifier = canCommandIn.identifier;
-	canCommandOut->message_type = canCommandIn.message_type;
-	canCommandOut->command = canCommandIn.command;
-	canCommandOut->message_id = canCommandIn.message_id;
-	
-	canCommandOut->command_type = command_type;
-	canCommandOut->data_length = data_length;
-
-	if(data_length > 4)
-	{
-		canCommandOut->data = malloc(data_length - 4);
-		if(canCommandOut->data != NULL)
-		{
-			ret = 1;
-			memcpy(canCommandOut->data, data, data_length - 4);
-		}
-	}
-	else if(data_length == 4)
-	{
-		ret = 1;
-	}
-	return ret;
-}
-#endif
 uint16_t can_protocol_getCtrlID(void)
 {
 	return canProtocol_ctrlID;
@@ -52,6 +16,7 @@ uint16_t can_protocol_getRdrID(void)
 
 void can_protocol_init(void)
 {
+	can_command_init();
 	canProtocolState = CAN_PROTOCOL_IDLE_STATE;
 	canProtocol_ctrlID = 0;
 	canProtocol_rdrID  = 0;

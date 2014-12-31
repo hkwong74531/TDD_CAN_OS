@@ -29,11 +29,256 @@ extern CanRxMsg rxMsg;
 
 TEST_GROUP(CANProtocolLayer)
 {
+	void can_protocol_receive_with_resend(void)
+	{
+		canProtocolState_t state;
+		canProtocolEvent_t event = CAN_PROTOCOL_DUMMY_EVENT;	
+	
+		rxMsg.StdId = 0x0508;
+		rxMsg.IDE = CAN_ID_STD;
+		rxMsg.DLC = 7;
+		rxMsg.Data[0] = 0x08;
+		/* data as below */
+		rxMsg.Data[1] = 0;	// command
+		rxMsg.Data[2] = 1;	// command_type
+		rxMsg.Data[3] = 0;	
+		rxMsg.Data[4] = 4;	// data_length
+		rxMsg.Data[5] = (uint8_t)((can_protocol_getCtrlID() & 0xFF00) >> 8);	
+		rxMsg.Data[6] = (uint8_t)(can_protocol_getCtrlID() & 0x00FF);	
+		can_command_setEvent(CAN_COMMAND_PACKET_RECEIVED_EVENT);
+	
+		state = can_protocol_state_process(event);	
+		BYTES_EQUAL(CAN_PROTOCOL_RCV_COMMAND_STATE, state);	
+	
+		can_protocol_setReply(0x03, 4, NULL);
+		event = CAN_PROTOCOL_REPLY_EVENT;
+		state = can_protocol_state_process(event);
+		state = can_protocol_state_process(event);	
+	
+		BYTES_EQUAL(CAN_PROTOCOL_IDLE_STATE, state);	
+
+		rxMsg.StdId = 0x0508;
+		rxMsg.IDE = CAN_ID_STD;
+		rxMsg.DLC = 7;
+		rxMsg.Data[0] = 0x08;
+		/* data as below */
+		rxMsg.Data[1] = 0;	// command
+		rxMsg.Data[2] = 1;	// command_type
+		rxMsg.Data[3] = 0;	
+		rxMsg.Data[4] = 4;	// data_length
+		rxMsg.Data[5] = (uint8_t)(((can_protocol_getCtrlID()-1) & 0xFF00) >> 8);	
+		rxMsg.Data[6] = (uint8_t)((can_protocol_getCtrlID()-1) & 0x00FF);	
+		can_command_setEvent(CAN_COMMAND_PACKET_RECEIVED_EVENT);	
+		state = can_protocol_state_process(event);	
+		BYTES_EQUAL(CAN_PROTOCOL_REPLY_LOST_STATE, state);	
+
+		event = CAN_PROTOCOL_REPLY_EVENT;
+		state = can_protocol_state_process(event);
+		state = can_protocol_state_process(event);		
+		BYTES_EQUAL(CAN_PROTOCOL_IDLE_STATE, state);
+	}
+
+	void can_protocol_receive(void)
+	{
+		canProtocolState_t state;
+		canProtocolEvent_t event = CAN_PROTOCOL_DUMMY_EVENT;	
+		uint8_t data[4];
+		
+		rxMsg.StdId = 0x0509;
+		rxMsg.IDE = CAN_ID_STD;
+		rxMsg.DLC = 8;
+		rxMsg.Data[0] = 0x89;
+		/* data as below */
+		rxMsg.Data[1] = 0x00;
+		rxMsg.Data[2] = 0;	
+		rxMsg.Data[3] = 1;	
+		rxMsg.Data[4] = 0;	
+		rxMsg.Data[5] = 13;	
+		rxMsg.Data[6] = (uint8_t)((can_protocol_getCtrlID() & 0xFF00) >> 8);	
+		rxMsg.Data[7] = (uint8_t)(can_protocol_getCtrlID() & 0x00FF);	
+		can_command_setEvent(CAN_COMMAND_PACKET_RECEIVED_EVENT);
+	
+		state = can_protocol_state_process(event);	
+		BYTES_EQUAL(CAN_PROTOCOL_IDLE_STATE, state);	
+	
+		rxMsg.StdId = 0x0509;
+		rxMsg.IDE = CAN_ID_STD;
+		rxMsg.DLC = 8;
+		rxMsg.Data[0] = 0x89;
+		/* data as below */
+		rxMsg.Data[1] = 0x41;
+		rxMsg.Data[2] = 6;	
+		rxMsg.Data[3] = 7;	
+		rxMsg.Data[4] = 8;	
+		rxMsg.Data[5] = 9;	
+		rxMsg.Data[6] = 10;	
+		rxMsg.Data[7] = 11;	
+		can_command_setEvent(CAN_COMMAND_PACKET_RECEIVED_EVENT);
+	
+		state = can_protocol_state_process(event);	
+		BYTES_EQUAL(CAN_PROTOCOL_IDLE_STATE, state);	
+
+		rxMsg.StdId = 0x0509;
+		rxMsg.IDE = CAN_ID_STD;
+		rxMsg.DLC = 5;
+		rxMsg.Data[0] = 0x89;
+		/* data as below */
+		rxMsg.Data[1] = 0x82;
+		rxMsg.Data[2] = 12;	
+		rxMsg.Data[3] = 13;	
+		rxMsg.Data[4] = 14;	
+		rxMsg.Data[5] = 0;	
+		rxMsg.Data[6] = 0;	
+		rxMsg.Data[7] = 0;	
+		can_command_setEvent(CAN_COMMAND_PACKET_RECEIVED_EVENT);
+	
+		state = can_protocol_state_process(event);	
+		BYTES_EQUAL(CAN_PROTOCOL_RCV_COMMAND_STATE, state);	
+	
+		data[0] = 1;
+		data[1] = 2;
+		data[2] = 3;
+		data[3] = 5;
+	
+		can_protocol_setReply(0x03, 8, data);
+		event = CAN_PROTOCOL_REPLY_EVENT;
+		state = can_protocol_state_process(event);
+
+		event = CAN_PROTOCOL_DUMMY_EVENT;
+		state = can_protocol_state_process(event);
+		BYTES_EQUAL(CAN_PROTOCOL_REPLYING_COMMAND_STATE, state);
+
+		LONGS_EQUAL(0x0509, txMsg.StdId);
+		BYTES_EQUAL(CAN_ID_STD, txMsg.IDE);
+		BYTES_EQUAL(8, txMsg.DLC);
+		BYTES_EQUAL(0x89, txMsg.Data[0]);
+		BYTES_EQUAL(0x00, txMsg.Data[1]);	
+		BYTES_EQUAL(0x00, txMsg.Data[2]);	// command	
+		BYTES_EQUAL(0x03, txMsg.Data[3]);	// command_type
+		BYTES_EQUAL(0x00, txMsg.Data[4]);	// 
+		BYTES_EQUAL(0x08, txMsg.Data[5]);	// data_length
+		BYTES_EQUAL(0x00, txMsg.Data[6]);	// 
+		BYTES_EQUAL((uint8_t)can_protocol_getCtrlID(), txMsg.Data[7]);	// message_id
+	
+		state = can_protocol_state_process(event);	
+		BYTES_EQUAL(CAN_PROTOCOL_IDLE_STATE, state);	
+
+		LONGS_EQUAL(0x0509, txMsg.StdId);
+		BYTES_EQUAL(CAN_ID_STD, txMsg.IDE);
+		BYTES_EQUAL(6, txMsg.DLC);
+		BYTES_EQUAL(0x89, txMsg.Data[0]);
+		BYTES_EQUAL(0x81, txMsg.Data[1]);	
+		BYTES_EQUAL(0x01, txMsg.Data[2]);	// command	
+		BYTES_EQUAL(0x02, txMsg.Data[3]);	// command_type
+		BYTES_EQUAL(0x03, txMsg.Data[4]);	// 
+		BYTES_EQUAL(0x05, txMsg.Data[5]);	// data_length
+	}
+	
+	void can_protocol_send(void)
+	{
+		canProtocolState_t state;
+		canProtocolEvent_t event = CAN_PROTOCOL_DUMMY_EVENT;	
+	
+		state = can_protocol_state_process(event);
+		BYTES_EQUAL(CAN_PROTOCOL_IDLE_STATE, state);	
+	
+		can_protocol_setSend(&command);
+		event = CAN_PROTOCOL_SEND_EVENT;
+		state = can_protocol_state_process(event);	
+
+		BYTES_EQUAL(CAN_PROTOCOL_SENDING_COMMAND_STATE, state);	
+	
+		event = CAN_PROTOCOL_DUMMY_EVENT;
+		state = can_protocol_state_process(event);	
+		state = can_protocol_state_process(event);		
+
+		BYTES_EQUAL(CAN_PROTOCOL_SENT_COMMAND_STATE, state);	
+
+		rxMsg.StdId = 0x0509;
+		rxMsg.IDE = CAN_ID_STD;
+		rxMsg.DLC = 8;
+		rxMsg.Data[0] = 0x89;
+		/* data as below */
+		rxMsg.Data[1] = 0x00;
+		rxMsg.Data[2] = 0;	
+		rxMsg.Data[3] = 3;	
+		rxMsg.Data[4] = 0;	
+		rxMsg.Data[5] = 7;	
+		rxMsg.Data[6] = (uint8_t)((can_protocol_getRdrID() & 0xFF00) >> 8);	
+		rxMsg.Data[7] = (uint8_t)(can_protocol_getRdrID() & 0x00FF);	
+		can_command_setEvent(CAN_COMMAND_PACKET_RECEIVED_EVENT);
+
+		state = can_protocol_state_process(event);	
+	
+		rxMsg.StdId = 0x0509;
+		rxMsg.IDE = CAN_ID_STD;
+		rxMsg.DLC = 5;
+		rxMsg.Data[0] = 0x89;
+		/* data as below */
+		rxMsg.Data[1] = 0x81;
+		rxMsg.Data[2] = 0x0A;	
+		rxMsg.Data[3] = 0x0B;	
+		rxMsg.Data[4] = 0x0C;	
+		can_command_setEvent(CAN_COMMAND_PACKET_RECEIVED_EVENT);
+	
+		state = can_protocol_state_process(event);	
+		BYTES_EQUAL(CAN_PROTOCOL_IDLE_STATE, state);
+	}
+
+	void can_protocol_send_with_timeout(void)
+	{
+		canProtocolState_t state;
+		canProtocolEvent_t event = CAN_PROTOCOL_DUMMY_EVENT;	
+	
+		state = can_protocol_state_process(event);
+
+		BYTES_EQUAL(CAN_PROTOCOL_IDLE_STATE, state);	
+
+		can_protocol_setSend(&command);
+		event = CAN_PROTOCOL_SEND_EVENT;
+		state = can_protocol_state_process(event);	
+
+		BYTES_EQUAL(CAN_PROTOCOL_SENDING_COMMAND_STATE, state);	
+	
+		event = CAN_PROTOCOL_DUMMY_EVENT;
+		state = can_protocol_state_process(event);	
+		state = can_protocol_state_process(event);		
+
+		BYTES_EQUAL(CAN_PROTOCOL_SENT_COMMAND_STATE, state);	
+
+		event = CAN_PROTOCOL_TIMEOUT_EVENT;
+		state = can_protocol_state_process(event);	
+
+		BYTES_EQUAL(CAN_PROTOCOL_SENDING_COMMAND_STATE, state);	
+	
+		event = CAN_PROTOCOL_DUMMY_EVENT;	
+		state = can_protocol_state_process(event);		
+		state = can_protocol_state_process(event);	
+
+		BYTES_EQUAL(CAN_PROTOCOL_SENT_COMMAND_STATE, state);	
+
+		rxMsg.StdId = 0x0509;
+		rxMsg.IDE = CAN_ID_STD;
+		rxMsg.DLC = 7;
+		rxMsg.Data[0] = 0x09;
+		/* data as below */
+		rxMsg.Data[1] = 0;
+		rxMsg.Data[2] = 3;	
+		rxMsg.Data[3] = 0;	
+		rxMsg.Data[4] = 4;	
+		rxMsg.Data[5] = (uint8_t)((can_protocol_getRdrID() & 0xFF00) >> 8);	
+		rxMsg.Data[6] = (uint8_t)(can_protocol_getRdrID() & 0x00FF);;	
+		can_command_setEvent(CAN_COMMAND_PACKET_RECEIVED_EVENT);
+
+		state = can_protocol_state_process(event);	
+		
+		BYTES_EQUAL(CAN_PROTOCOL_IDLE_STATE, state);	
+	}
+
     void setup()
     {
 		memset(&rxMsg, 0, sizeof(CanRxMsg));
 
-		can_command_init();
 		can_protocol_init();
     }
 
@@ -83,7 +328,7 @@ TEST(CANProtocolLayer, testTransmitter1)
 
 	state = can_protocol_state_process(event);
 	BYTES_EQUAL(CAN_PROTOCOL_IDLE_STATE, state);	
-	BYTES_EQUAL(0, can_command_isAllReceived());	
+
 
 	command.identifier = 0x09;
 	command.message_type = 0x0a;
@@ -107,7 +352,6 @@ TEST(CANProtocolLayer, testTransmitter1)
 	state = can_protocol_state_process(event);	
 	state = can_protocol_state_process(event);		
 	BYTES_EQUAL(CAN_PROTOCOL_SENT_COMMAND_STATE, state);	
-	BYTES_EQUAL(CAN_COMMAND_IDLE_STATE, can_command_getState());	
 	
 	rxMsg.StdId = 0x0509;
 	rxMsg.IDE = CAN_ID_STD;
@@ -138,7 +382,6 @@ TEST(CANProtocolLayer, testTransmitter2)
 
 	state = can_protocol_state_process(event);
 	BYTES_EQUAL(CAN_PROTOCOL_IDLE_STATE, state);	
-	BYTES_EQUAL(0, can_command_isAllReceived());	
 
 	command.identifier = 0x09;
 	command.message_type = 0x0a;
@@ -163,7 +406,6 @@ TEST(CANProtocolLayer, testTransmitter2)
 	state = can_protocol_state_process(event);	
 	state = can_protocol_state_process(event);		
 	BYTES_EQUAL(CAN_PROTOCOL_SENT_COMMAND_STATE, state);	
-	BYTES_EQUAL(CAN_COMMAND_IDLE_STATE, can_command_getState());
 
 	event = CAN_PROTOCOL_TIMEOUT_EVENT;
 	state = can_protocol_state_process(event);	
@@ -171,11 +413,9 @@ TEST(CANProtocolLayer, testTransmitter2)
 	
 	event = CAN_PROTOCOL_DUMMY_EVENT;	
 	state = can_protocol_state_process(event);		
-	BYTES_EQUAL(CAN_COMMAND_SENDING_STATE, can_command_getState());
 
 	state = can_protocol_state_process(event);	
 	BYTES_EQUAL(CAN_PROTOCOL_SENT_COMMAND_STATE, state);	
-	BYTES_EQUAL(CAN_COMMAND_IDLE_STATE, can_command_getState());	
 	
 	rxMsg.StdId = 0x0509;
 	rxMsg.IDE = CAN_ID_STD;
@@ -189,12 +429,9 @@ TEST(CANProtocolLayer, testTransmitter2)
 	rxMsg.Data[5] = 0;	
 	rxMsg.Data[6] = 0;	
 	can_command_setEvent(CAN_COMMAND_PACKET_RECEIVED_EVENT);
-	BYTES_EQUAL(CAN_COMMAND_IDLE_STATE, can_command_getState());
 	state = can_protocol_state_process(event);	
 	BYTES_EQUAL(CAN_PROTOCOL_IDLE_STATE, state);
 
-	BYTES_EQUAL(1, can_command_getState());
-	
 	LONGS_EQUAL(1, can_protocol_getRdrID());
 	can_protocol_getReceived(&command);	
 	BYTES_EQUAL(0x09, command.identifier);
@@ -202,7 +439,6 @@ TEST(CANProtocolLayer, testTransmitter2)
 	
 	/****************************/
 	state = can_protocol_state_process(event);
-	BYTES_EQUAL(1, can_command_getState());	
 	BYTES_EQUAL(CAN_PROTOCOL_IDLE_STATE, state);	
 
 	command.identifier = 0x09;
@@ -227,17 +463,7 @@ TEST(CANProtocolLayer, testTransmitter2)
 
 TEST(CANProtocolLayer, testTranceiver)
 {
-//	uint8_t ret;
-//	canCommand_t command;
-	uint8_t data[4];
-	canProtocolState_t state;
-	canProtocolEvent_t event = CAN_PROTOCOL_DUMMY_EVENT;	
-
 	/****1st send****/		
-	state = can_protocol_state_process(event);
-	BYTES_EQUAL(CAN_PROTOCOL_IDLE_STATE, state);	
-	BYTES_EQUAL(0, can_command_isAllReceived());	
-
 	command.identifier = 0x09;
 	command.message_type = 0x0a;
 	command.command = 0x00;
@@ -249,46 +475,7 @@ TEST(CANProtocolLayer, testTranceiver)
 	command.data[1] = 5;
 	command.data[2] = 6;
 
-	can_protocol_setSend(&command);
-	event = CAN_PROTOCOL_SEND_EVENT;
-	state = can_protocol_state_process(event);	
-
-	BYTES_EQUAL(CAN_PROTOCOL_SENDING_COMMAND_STATE, state);	
-	
-	event = CAN_PROTOCOL_DUMMY_EVENT;
-	state = can_protocol_state_process(event);	
-	state = can_protocol_state_process(event);		
-
-	BYTES_EQUAL(CAN_PROTOCOL_SENT_COMMAND_STATE, state);	
-
-	event = CAN_PROTOCOL_TIMEOUT_EVENT;
-	state = can_protocol_state_process(event);	
-
-	BYTES_EQUAL(CAN_PROTOCOL_SENDING_COMMAND_STATE, state);	
-	
-	event = CAN_PROTOCOL_DUMMY_EVENT;	
-	state = can_protocol_state_process(event);		
-
-	BYTES_EQUAL(CAN_COMMAND_SENDING_STATE, can_command_getState());
-
-	state = can_protocol_state_process(event);	
-	BYTES_EQUAL(CAN_PROTOCOL_SENT_COMMAND_STATE, state);	
-	
-	rxMsg.StdId = 0x0509;
-	rxMsg.IDE = CAN_ID_STD;
-	rxMsg.DLC = 7;
-	rxMsg.Data[0] = 0x09;
-	/* data as below */
-	rxMsg.Data[1] = 0;
-	rxMsg.Data[2] = 3;	
-	rxMsg.Data[3] = 0;	
-	rxMsg.Data[4] = 4;	
-	rxMsg.Data[5] = 0;	
-	rxMsg.Data[6] = 0;	
-	can_command_setEvent(CAN_COMMAND_PACKET_RECEIVED_EVENT);
-
-	state = can_protocol_state_process(event);	
-	BYTES_EQUAL(CAN_PROTOCOL_IDLE_STATE, state);
+	can_protocol_send_with_timeout();
 
 	LONGS_EQUAL(1, can_protocol_getRdrID());
 	can_protocol_getReceived(&command);	
@@ -296,63 +483,19 @@ TEST(CANProtocolLayer, testTranceiver)
 	BYTES_EQUAL(0x03, command.command_type);
 	
 	/****2nd send****/
-	state = can_protocol_state_process(event);
-	BYTES_EQUAL(CAN_PROTOCOL_IDLE_STATE, state);	
-	
 	command.identifier = 0x09;
 	command.message_type = 0x0a;
 	command.command = 0x00;
 	command.command_type = 0x01;
 	command.data_length = 7;
-	command.message_id = 1;
+	command.message_id = can_protocol_getRdrID();
 	command.data = (uint8_t*)malloc(3);
 	command.data[0] = 4;
 	command.data[1] = 5;
 	command.data[2] = 6;
 
-	can_protocol_setSend(&command);
-	event = CAN_PROTOCOL_SEND_EVENT;
-	state = can_protocol_state_process(event);	
-
-	BYTES_EQUAL(CAN_PROTOCOL_SENDING_COMMAND_STATE, state);	
+	can_protocol_send();
 	
-	event = CAN_PROTOCOL_DUMMY_EVENT;
-	state = can_protocol_state_process(event);	
-	state = can_protocol_state_process(event);		
-
-	BYTES_EQUAL(CAN_PROTOCOL_SENT_COMMAND_STATE, state);	
-
-	rxMsg.StdId = 0x0509;
-	rxMsg.IDE = CAN_ID_STD;
-	rxMsg.DLC = 8;
-	rxMsg.Data[0] = 0x89;
-	/* data as below */
-	rxMsg.Data[1] = 0x00;
-	rxMsg.Data[2] = 0;	
-	rxMsg.Data[3] = 3;	
-	rxMsg.Data[4] = 0;	
-	rxMsg.Data[5] = 7;	
-	rxMsg.Data[6] = 0;
-	rxMsg.Data[7] = 1;	
-	can_command_setEvent(CAN_COMMAND_PACKET_RECEIVED_EVENT);
-
-	state = can_protocol_state_process(event);	
-	BYTES_EQUAL(CAN_COMMAND_RECEIVING_STATE, can_command_getState());	
-	
-	rxMsg.StdId = 0x0509;
-	rxMsg.IDE = CAN_ID_STD;
-	rxMsg.DLC = 5;
-	rxMsg.Data[0] = 0x89;
-	/* data as below */
-	rxMsg.Data[1] = 0x81;
-	rxMsg.Data[2] = 0x0A;	
-	rxMsg.Data[3] = 0x0B;	
-	rxMsg.Data[4] = 0x0C;	
-	can_command_setEvent(CAN_COMMAND_PACKET_RECEIVED_EVENT);
-	
-	state = can_protocol_state_process(event);		
-	BYTES_EQUAL(CAN_PROTOCOL_IDLE_STATE, state);
-
 	LONGS_EQUAL(2, can_protocol_getRdrID());
 	can_protocol_getReceived(&command);	
 	BYTES_EQUAL(0x09, command.identifier);
@@ -365,104 +508,18 @@ TEST(CANProtocolLayer, testTranceiver)
 	BYTES_EQUAL(12, command.data[2]);	
 
 	/****1st receive****/	
-	rxMsg.StdId = 0x0508;
-	rxMsg.IDE = CAN_ID_STD;
-	rxMsg.DLC = 7;
-	rxMsg.Data[0] = 0x08;
-	/* data as below */
-	rxMsg.Data[1] = 0;	// command
-	rxMsg.Data[2] = 1;	// command_type
-	rxMsg.Data[3] = 0;	
-	rxMsg.Data[4] = 4;	// data_length
-	rxMsg.Data[5] = 0;	
-	rxMsg.Data[6] = 0;	// message_id
-	can_command_setEvent(CAN_COMMAND_PACKET_RECEIVED_EVENT);
-	
-	state = can_protocol_state_process(event);	
-	BYTES_EQUAL(CAN_PROTOCOL_RCV_COMMAND_STATE, state);	
+	can_protocol_receive_with_resend();
 	
 	can_protocol_getReceived(&command);
-	
-	can_protocol_setReply(0x03, 4, NULL);
-	event = CAN_PROTOCOL_REPLY_EVENT;
-	state = can_protocol_state_process(event);
-	state = can_protocol_state_process(event);	
-	
-	BYTES_EQUAL(CAN_PROTOCOL_IDLE_STATE, state);	
-	BYTES_EQUAL(1, can_protocol_getCtrlID());
 
-	rxMsg.StdId = 0x0508;
-	rxMsg.IDE = CAN_ID_STD;
-	rxMsg.DLC = 7;
-	rxMsg.Data[0] = 0x08;
-	/* data as below */
-	rxMsg.Data[1] = 0;	// command
-	rxMsg.Data[2] = 1;	// command_type
-	rxMsg.Data[3] = 0;	
-	rxMsg.Data[4] = 4;	// data_length
-	rxMsg.Data[5] = 0;	
-	rxMsg.Data[6] = 0;	// message_id	
-	can_command_setEvent(CAN_COMMAND_PACKET_RECEIVED_EVENT);	
-	state = can_protocol_state_process(event);	
-	BYTES_EQUAL(CAN_PROTOCOL_REPLY_LOST_STATE, state);	
-
-	event = CAN_PROTOCOL_REPLY_EVENT;
-	state = can_protocol_state_process(event);
-	state = can_protocol_state_process(event);		
-	BYTES_EQUAL(CAN_PROTOCOL_IDLE_STATE, state);
+	BYTES_EQUAL(0x08, command.identifier);
+	BYTES_EQUAL(0x0a, command.message_type);
+	BYTES_EQUAL(0, command.command);
+	BYTES_EQUAL(1, command.command_type);
 
 	/****2nd receive****/	
-	rxMsg.StdId = 0x0509;
-	rxMsg.IDE = CAN_ID_STD;
-	rxMsg.DLC = 8;
-	rxMsg.Data[0] = 0x89;
-	/* data as below */
-	rxMsg.Data[1] = 0x00;
-	rxMsg.Data[2] = 0;	
-	rxMsg.Data[3] = 1;	
-	rxMsg.Data[4] = 0;	
-	rxMsg.Data[5] = 13;	
-	rxMsg.Data[6] = 0;	
-	rxMsg.Data[7] = 1;	
-	can_command_setEvent(CAN_COMMAND_PACKET_RECEIVED_EVENT);
-	
-	state = can_protocol_state_process(event);	
-	BYTES_EQUAL(CAN_PROTOCOL_IDLE_STATE, state);	
-	
-	rxMsg.StdId = 0x0509;
-	rxMsg.IDE = CAN_ID_STD;
-	rxMsg.DLC = 8;
-	rxMsg.Data[0] = 0x89;
-	/* data as below */
-	rxMsg.Data[1] = 0x41;
-	rxMsg.Data[2] = 6;	
-	rxMsg.Data[3] = 7;	
-	rxMsg.Data[4] = 8;	
-	rxMsg.Data[5] = 9;	
-	rxMsg.Data[6] = 10;	
-	rxMsg.Data[7] = 11;	
-	can_command_setEvent(CAN_COMMAND_PACKET_RECEIVED_EVENT);
-	
-	state = can_protocol_state_process(event);	
-	BYTES_EQUAL(CAN_PROTOCOL_IDLE_STATE, state);	
+	can_protocol_receive();
 
-	rxMsg.StdId = 0x0509;
-	rxMsg.IDE = CAN_ID_STD;
-	rxMsg.DLC = 5;
-	rxMsg.Data[0] = 0x89;
-	/* data as below */
-	rxMsg.Data[1] = 0x82;
-	rxMsg.Data[2] = 12;	
-	rxMsg.Data[3] = 13;	
-	rxMsg.Data[4] = 14;	
-	rxMsg.Data[5] = 0;	
-	rxMsg.Data[6] = 0;	
-	rxMsg.Data[7] = 0;	
-	can_command_setEvent(CAN_COMMAND_PACKET_RECEIVED_EVENT);
-	
-	state = can_protocol_state_process(event);	
-	BYTES_EQUAL(CAN_PROTOCOL_RCV_COMMAND_STATE, state);	
-	
 	can_protocol_getReceived(&command);
 
 	BYTES_EQUAL(0x09, command.identifier);
@@ -478,55 +535,8 @@ TEST(CANProtocolLayer, testTranceiver)
 	BYTES_EQUAL(12, command.data[6]);	
 	BYTES_EQUAL(13, command.data[7]);		
 	BYTES_EQUAL(14, command.data[8]);		
-	
-	data[0] = 1;
-	data[1] = 2;
-	data[2] = 3;
-	data[3] = 4;
-	
-	can_protocol_setReply(0x03, 8, data);
-	event = CAN_PROTOCOL_REPLY_EVENT;
-	state = can_protocol_state_process(event);
 
-	event = CAN_PROTOCOL_DUMMY_EVENT;
-	state = can_protocol_state_process(event);
-	BYTES_EQUAL(CAN_PROTOCOL_REPLYING_COMMAND_STATE, state);
-
-	LONGS_EQUAL(0x0509, txMsg.StdId);
-	BYTES_EQUAL(CAN_ID_STD, txMsg.IDE);
-	BYTES_EQUAL(8, txMsg.DLC);
-	BYTES_EQUAL(0x89, txMsg.Data[0]);
-	BYTES_EQUAL(0x00, txMsg.Data[1]);	
-	BYTES_EQUAL(0x00, txMsg.Data[2]);	// command	
-	BYTES_EQUAL(0x03, txMsg.Data[3]);	// command_type
-	BYTES_EQUAL(0x00, txMsg.Data[4]);	// 
-	BYTES_EQUAL(0x08, txMsg.Data[5]);	// data_length
-	BYTES_EQUAL(0x00, txMsg.Data[6]);	// 
-	BYTES_EQUAL(0x01, txMsg.Data[7]);	// message_id
-	
-	state = can_protocol_state_process(event);	
-	BYTES_EQUAL(CAN_PROTOCOL_IDLE_STATE, state);	
-	
-	LONGS_EQUAL(0x0509, txMsg.StdId);
-	BYTES_EQUAL(CAN_ID_STD, txMsg.IDE);
-	BYTES_EQUAL(6, txMsg.DLC);
-	BYTES_EQUAL(0x89, txMsg.Data[0]);
-	BYTES_EQUAL(0x81, txMsg.Data[1]);	
-	BYTES_EQUAL(0x01, txMsg.Data[2]);	// command	
-	BYTES_EQUAL(0x02, txMsg.Data[3]);	// command_type
-	BYTES_EQUAL(0x03, txMsg.Data[4]);	// 
-	BYTES_EQUAL(0x04, txMsg.Data[5]);	// data_length
-	BYTES_EQUAL(0x00, txMsg.Data[6]);	// 
-	BYTES_EQUAL(0x01, txMsg.Data[7]);	// message_id
-
-	BYTES_EQUAL(0, can_command_isAllSent());	
-	
 	/****3rd send****/		
-	state = can_protocol_state_process(event);
-	BYTES_EQUAL(CAN_PROTOCOL_IDLE_STATE, state);
-	BYTES_EQUAL(CAN_COMMAND_IDLE_STATE, can_command_getState());	
-	BYTES_EQUAL(0, can_command_isAllSent());
-
 	command.identifier = 0x09;
 	command.message_type = 0x0a;
 	command.command = 0x00;
@@ -538,52 +548,40 @@ TEST(CANProtocolLayer, testTranceiver)
 	command.data[1] = 5;
 	command.data[2] = 6;
 
-	can_protocol_setSend(&command);
-	event = CAN_PROTOCOL_SEND_EVENT;
-	state = can_protocol_state_process(event);	
-
-	BYTES_EQUAL(CAN_PROTOCOL_SENDING_COMMAND_STATE, state);	
+	can_protocol_send_with_timeout();
 	
-	event = CAN_PROTOCOL_DUMMY_EVENT;
-	state = can_protocol_state_process(event);	
-	state = can_protocol_state_process(event);		
-
-	BYTES_EQUAL(CAN_PROTOCOL_SENT_COMMAND_STATE, state);	
-
-	event = CAN_PROTOCOL_TIMEOUT_EVENT;
-	state = can_protocol_state_process(event);	
-
-	BYTES_EQUAL(CAN_PROTOCOL_SENDING_COMMAND_STATE, state);	
-	
-	event = CAN_PROTOCOL_DUMMY_EVENT;	
-	state = can_protocol_state_process(event);		
-
-	BYTES_EQUAL(CAN_COMMAND_SENDING_STATE, can_command_getState());
-
-	state = can_protocol_state_process(event);	
-	BYTES_EQUAL(CAN_PROTOCOL_SENT_COMMAND_STATE, state);	
-	
-	rxMsg.StdId = 0x0509;
-	rxMsg.IDE = CAN_ID_STD;
-	rxMsg.DLC = 7;
-	rxMsg.Data[0] = 0x09;
-	/* data as below */
-	rxMsg.Data[1] = 0;
-	rxMsg.Data[2] = 3;	
-	rxMsg.Data[3] = 0;	
-	rxMsg.Data[4] = 4;	
-	rxMsg.Data[5] = 0;	
-	rxMsg.Data[6] = 2;	
-	can_command_setEvent(CAN_COMMAND_PACKET_RECEIVED_EVENT);
-
-	state = can_protocol_state_process(event);	
-	BYTES_EQUAL(CAN_PROTOCOL_IDLE_STATE, state);
-
 	LONGS_EQUAL(3, can_protocol_getRdrID());
 	can_protocol_getReceived(&command);	
 	BYTES_EQUAL(0x09, command.identifier);
 	BYTES_EQUAL(0x03, command.command_type);
 	
+	/****3rd receive****/
+	can_protocol_receive_with_resend();
+
+	/****4th send****/		
+	command.identifier = 0x09;
+	command.message_type = 0x0a;
+	command.command = 0x00;
+	command.command_type = 0x01;
+	command.data_length = 10;
+	command.message_id = can_protocol_getRdrID();
+	command.data = (uint8_t*)malloc(6);
+	command.data[0] = 4;
+	command.data[1] = 5;
+	command.data[2] = 6;
+	command.data[3] = 7;
+	command.data[4] = 8;
+	command.data[5] = 9;
+
+	can_protocol_send_with_timeout();
+
+	LONGS_EQUAL(4, can_protocol_getRdrID());
+	can_protocol_getReceived(&command);	
+	BYTES_EQUAL(0x09, command.identifier);
+	BYTES_EQUAL(0x03, command.command_type);
+
+	/****4th receive****/	
+	can_protocol_receive();
 }
 
 
