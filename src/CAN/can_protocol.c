@@ -1,5 +1,6 @@
 #include "can_protocol.h"
 
+static uint8_t canProtocolRcvFlag;
 static canProtocolState_t canProtocolState;
 static canCommand_t canProtocolReceived, canProtocolSend;
 static uint16_t canProtocol_ctrlID, canProtocol_rdrID;
@@ -18,6 +19,7 @@ void can_protocol_init(void)
 {
 	can_command_init();
 	canProtocolState = CAN_PROTOCOL_IDLE_STATE;
+	canProtocolRcvFlag = 0;
 	canProtocol_ctrlID = 0;
 	canProtocol_rdrID  = 0;
 	memset(&canProtocolReceived, 0, sizeof(canCommand_t));
@@ -67,9 +69,15 @@ uint8_t can_protocol_setReply(uint8_t command_type, uint16_t data_length, uint8_
 	return ret;	
 }
 
+uint8_t can_protocol_getRcvFlag(void)
+{
+	return canProtocolRcvFlag;
+}
+
 void can_protocol_getReceived(canCommand_t* received)
 {
 	memcpy(received, &canProtocolReceived, sizeof(canCommand_t));
+	canProtocolRcvFlag = 0;
 }
 
 canProtocolState_t can_protocol_state_process(canProtocolEvent_t event)
@@ -88,12 +96,14 @@ canProtocolState_t can_protocol_state_process(canProtocolEvent_t event)
 			ret = can_command_acquired(&canProtocolReceived);
 			if(canProtocolReceived.message_id == canProtocol_ctrlID)
 			{
+				canProtocolRcvFlag = 1;
 				canProtocolState = CAN_PROTOCOL_RCV_COMMAND_STATE;
 			}
 			else if(canProtocolReceived.message_id == canProtocol_ctrlID - 1)
 			{
 				if(!memcmp(&canProtocolBuffer, &canProtocolReceived, sizeof(canCommand_t)))
 				{
+					canProtocolRcvFlag = 1;
 					canProtocol_ctrlID--;
 					canProtocolState = CAN_PROTOCOL_REPLY_LOST_STATE;
 				}
@@ -101,6 +111,7 @@ canProtocolState_t can_protocol_state_process(canProtocolEvent_t event)
 		}
 		else if(event == CAN_PROTOCOL_SEND_EVENT)
 		{
+			canProtocolRcvFlag = 0;
 			ret = can_command_transmit(canProtocolSend);
 			if(can_command_isAllSent())
 			{
@@ -117,6 +128,7 @@ canProtocolState_t can_protocol_state_process(canProtocolEvent_t event)
 	case CAN_PROTOCOL_REPLY_LOST_STATE:
 		if(event == CAN_PROTOCOL_REPLY_EVENT)
 		{
+			canProtocolRcvFlag = 0;
 			ret = can_command_transmit(canProtocolSend);
 			if(can_command_isAllSent())
 			{
@@ -142,6 +154,7 @@ canProtocolState_t can_protocol_state_process(canProtocolEvent_t event)
 		if(can_command_isAllReceived())
 		{
 			ret = can_command_acquired(&canProtocolReceived);
+			canProtocolRcvFlag = 1;
 			if(canProtocolReceived.message_id == canProtocol_rdrID)
 			{
 				if(canProtocolReceived.message_type == canProtocolSend.message_type &&
