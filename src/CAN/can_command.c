@@ -32,8 +32,11 @@ static void can_command_idle_enter(void)
 static void can_command_idle_state(canCommandEvent_t* canCommandEvent)
 {
 	uint8_t ret;
+	canCommandEvent_t event;
 
-	switch(*canCommandEvent)
+	event = *canCommandEvent;
+	*canCommandEvent = CAN_COMMAND_DUMMY_EVENT;
+	switch(event)
 	{
 	case CAN_COMMAND_SEND_EVENT:
 		can_command_allSent = 0;
@@ -69,7 +72,6 @@ static void can_command_idle_state(canCommandEvent_t* canCommandEvent)
 	default:
 		break;
 	}
-	*canCommandEvent = CAN_COMMAND_DUMMY_EVENT;
 }
 
 static void can_command_sending_enter(void)
@@ -82,7 +84,11 @@ static void can_command_sending_state(canCommandEvent_t* canCommandEvent)
 {
 	uint8_t ret;
 
-	switch(*canCommandEvent)
+	canCommandEvent_t event;
+
+	event = *canCommandEvent;
+	*canCommandEvent = CAN_COMMAND_DUMMY_EVENT;
+	switch(event)
 	{
 	case CAN_COMMAND_INIT_EVENT:
 		can_command_idle_enter();
@@ -118,7 +124,6 @@ static void can_command_sending_state(canCommandEvent_t* canCommandEvent)
 	default:
 		break;
 	}
-	*canCommandEvent = CAN_COMMAND_DUMMY_EVENT;
 }
 
 static void can_command_receiving_enter(void)
@@ -130,8 +135,11 @@ static void can_command_receiving_enter(void)
 static void can_command_receiving_state(canCommandEvent_t* canCommandEvent)
 {
 	uint8_t ret;
+	canCommandEvent_t event;
 
-	switch(*canCommandEvent)
+	event = *canCommandEvent;
+	*canCommandEvent = CAN_COMMAND_DUMMY_EVENT;
+	switch(event)
 	{
 	case CAN_COMMAND_INIT_EVENT:
 		can_command_idle_enter();
@@ -149,7 +157,6 @@ static void can_command_receiving_state(canCommandEvent_t* canCommandEvent)
 	default:
 		break;
 	}
-	*canCommandEvent = CAN_COMMAND_DUMMY_EVENT;
 }
 
 void can_command_init(void)
