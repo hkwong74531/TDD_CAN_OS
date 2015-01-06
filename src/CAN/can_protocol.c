@@ -1,9 +1,15 @@
 #include "can_protocol.h"
 
 static uint8_t canProtocolRcvFlag;
+static uint16_t canProtocolTimerCnt;
 static canProtocolState_t canProtocolState;
 static canCommand_t canProtocolReceived, canProtocolSend;
 static uint16_t canProtocol_ctrlID, canProtocol_rdrID;
+
+canProtocolState_t can_protocol_getState(void)
+{
+	return canProtocolState;
+}
 
 uint16_t can_protocol_getCtrlID(void)
 {
@@ -22,6 +28,7 @@ void can_protocol_init(void)
 	canProtocolRcvFlag = 0;
 	canProtocol_ctrlID = 0;
 	canProtocol_rdrID  = 0;
+	canProtocolTimerCnt = 0;
 	memset(&canProtocolReceived, 0, sizeof(canCommand_t));
 	memset(&canProtocolSend, 0, sizeof(canCommand_t));	
 }
@@ -30,6 +37,21 @@ void can_protocol_deinit(void)
 {
 	free(canProtocolReceived.data);
 	free(canProtocolSend.data);	
+}
+
+void can_protocol_timer_inc(void)
+{
+	canProtocolTimerCnt++;
+}
+
+void can_protocol_timer_clr(void)
+{
+	canProtocolTimerCnt = 0;
+}
+
+uint8_t can_protocol_timer_compare(uint16_t cnt)
+{
+	return (canProtocolTimerCnt >= cnt);
 }
 
 void can_protocol_setSend(canCommand_t* send)

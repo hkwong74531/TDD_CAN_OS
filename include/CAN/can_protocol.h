@@ -1,7 +1,7 @@
 #ifndef D_CANProtocol_H
 #define D_CANProtocol_H
 
-#define	_CPPUTEST_
+//#define	_CPPUTEST_
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -33,10 +33,15 @@ typedef enum
 
 void can_protocol_init(void);
 void can_protocol_deinit(void);
+canProtocolState_t can_protocol_getState(void);
+void can_protocol_timer_inc(void);
+void can_protocol_timer_clr(void);
+uint8_t can_protocol_timer_compare(uint16_t);
 uint16_t can_protocol_getCtrlID(void);
 uint16_t can_protocol_getRdrID(void);
 void can_protocol_setSend(canCommand_t*);
 uint8_t can_protocol_setReply(uint8_t, uint16_t, uint8_t*);
+uint8_t can_protocol_getRcvFlag(void);
 void can_protocol_getReceived(canCommand_t*);
 canProtocolState_t can_protocol_state_process(canProtocolEvent_t);
 
